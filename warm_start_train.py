@@ -15,7 +15,7 @@ import pickle
 from tqdm import tqdm
 
 # Import the PPO model instead of original InteractiveModel
-from InteractiveModel_torch import get_cum_interesting, get_initial_masking, get_masking, PPOExternalMemInteractiveModel
+from PPOInteractive_Model import get_cum_interesting, get_initial_masking, get_masking, PPOExternalMemInteractiveModel
 
 # Check if CUDA is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -170,7 +170,7 @@ def ppo_cold_train(file, test_num, warm_split, k, filter_nb=0):
     # PPO specific hyperparameters
     ppo_clip_ratio = 0.2
     ppo_epochs = 4
-    entropy_coef = 0.01
+    entropy_coef = 0.005
     value_coef = 0.5
 
     print(f"file:{file}, k:{k}, test_num:{test_num}, warm_split:{warm_split}")
