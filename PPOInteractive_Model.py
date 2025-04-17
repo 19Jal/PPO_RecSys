@@ -502,7 +502,7 @@ class PPOInteractiveModel(nn.Module):
     def supervised_learn(self, user_interesting, user_masking, targets, processes_length, 
                        init_state=None, s_token=0, s_hit=1.0):
         """
-        Supervised learning phase (not modified for PPO since it's used only initially)
+        Supervised learning phase
         """
         self.train()
         self.optimizer.zero_grad()
@@ -796,7 +796,7 @@ class PPOExternalMemInteractiveModel(nn.Module):
     def supervised_learn(self, user_interesting, user_masking, mem, targets, processes_length, 
                        init_state=None, s_token=0, s_hit=1.0):
         """
-        Supervised learning phase (not modified for PPO since it's used only initially)
+        Supervised learning phase
         """
         self.train()
         self.optimizer.zero_grad()
@@ -864,7 +864,7 @@ class PPOExternalMemInteractiveModel(nn.Module):
                 user_hit, user_imediate_reward, user_cumsum_reward)
 
 
-# Helper functions (unchanged)
+# Helper functions 
 def get_cum_interesting(y, n):
     """Convert history items to one-hot representation of interests"""
     interest = np.zeros((1, n), dtype=np.float32)

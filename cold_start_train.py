@@ -14,7 +14,6 @@ import heapq
 import pickle
 from tqdm import tqdm
 
-# Import the PPO model instead of original InteractiveModel
 from PPOInteractive_Model import get_cum_interesting, get_initial_masking, get_masking, PPOInteractiveModel
 
 # Check if CUDA is available
@@ -159,7 +158,7 @@ def ppo_cold_train(file, test_num, warm_split, k, filter_nb=0):
             test_users = pickle.load(f)
 
     # Model hyperparameters
-    lr = 0.001
+    lr = 0.0001
     rnn_size = 100
     layer_size = 1
     embedding_dim = 100
