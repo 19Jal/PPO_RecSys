@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created based on TensorFlow implementation
-Converted to PyTorch with PPO reinforcement learning
-"""
 import logging
 import random
 import sys

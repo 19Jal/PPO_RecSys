@@ -1,8 +1,3 @@
-"""
-Created based on TensorFlow implementation
-Converted to PyTorch with PPO reinforcement learning
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
