@@ -158,27 +158,28 @@ def ppo_cold_train(file, test_num, warm_split, k, filter_nb=0):
             test_users = pickle.load(f)
 
     # Model hyperparameters
-    lr = 0.0001
+    lr = 0.0005
     rnn_size = 100
     layer_size = 1
     embedding_dim = 100
     nb_epoch = 100
     slice_length = 20
-    switch_epoch = 4
+    switch_epoch = 3
+    kl_coef = 0.01
     
     # PPO specific hyperparameters
     ppo_clip_ratio = 0.2
     ppo_epochs = 4
-    entropy_coef = 0.005
+    entropy_coef = 0.001
     value_coef = 0.5
 
-    print(f"file:{file}, k:{k}, test_num:{test_num}, warm_split:{warm_split}")
+    print(f"file:{file}, k:{k}, test_num:{test_num}, warm_split:{warm_split}\n")
     print(f"Using PPO with clip ratio:{ppo_clip_ratio}, epochs:{ppo_epochs}")
 
     # Initialize model with PPO
     im = PPOInteractiveModel(
         rnn_size, layer_size, item_size, embedding_dim, k, lr, device,
-        ppo_clip_ratio=ppo_clip_ratio, ppo_epochs=ppo_epochs,
+        kl_coef, ppo_clip_ratio=ppo_clip_ratio, ppo_epochs=ppo_epochs,
         entropy_coef=entropy_coef, value_coef=value_coef
     )
     im.to(device)
@@ -210,7 +211,7 @@ def ppo_cold_train(file, test_num, warm_split, k, filter_nb=0):
                 if epoch > switch_epoch:
                     # Use PPO reinforcement learning instead of standard policy gradient
                     rein, train_hit, final_state, masking, samples = im.ppo_reinforcement_learn(
-                        interest, masking, inference_length, final_state, s_token, s_hit)
+                        interest, masking, inference_length, final_state, s_token, s_hit, )
                 else:
                     # Supervised learning remains the same
                     sup, train_hit, final_state, masking, samples = im.supervised_learn(
