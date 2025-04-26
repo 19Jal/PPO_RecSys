@@ -1,12 +1,8 @@
-import logging
 import random
-import sys
-import os
 import torch
 import numpy as np
-import time
-import heapq
 import pickle
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # Import the PPO model instead of original InteractiveModel
@@ -14,7 +10,7 @@ from PPOInteractive_Model import get_cum_interesting, get_initial_masking, get_m
 
 # Check if CUDA is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+print(f"Using device: {device}\n")
 
 
 def inter_diversity(lists):
@@ -133,6 +129,64 @@ def get_topk(action, k):
     selection = np.argsort(action)[::-1][:k]
     return selection
 
+def visualize_training(train_hits, test_hits, checkpoint_epochs=None):
+    """
+    Visualize training metrics with customizable plots
+    
+    Args:
+        train_hits: List of train hit rates per epoch
+        test_hits: List of test hit rates per epoch
+        checkpoint_epochs: Optional list of epochs where checkpoints were saved
+    """
+    plt.figure(figsize=(12, 8))
+    
+    # Plot train hit rates
+    plt.subplot(2, 1, 1)
+    
+    epochs = range(1, len(train_hits) + 1)
+    plt.plot(epochs, train_hits, 'b-', marker='o', markersize=5, label='Training Hit Rate')
+    
+    # Add markers for checkpoint epochs if provided
+    if checkpoint_epochs:
+        checkpoint_train_hits = [train_hits[e-1] for e in checkpoint_epochs if e <= len(train_hits)]
+        checkpoint_x = [e for e in checkpoint_epochs if e <= len(train_hits)]
+        plt.plot(checkpoint_x, checkpoint_train_hits, 'ro', markersize=8, label='Checkpoints')
+    
+    plt.title('Training Hit Rate Over Time', fontsize=14)
+    plt.xlabel('Epochs', fontsize=12)
+    plt.ylabel('Hit Rates', fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    
+    # Add moving average line for trend
+    window_size = min(5, len(train_hits))
+    if window_size > 1:
+        moving_avg = np.convolve(train_hits, np.ones(window_size)/window_size, mode='valid')
+        plt.plot(range(window_size, len(train_hits) + 1), moving_avg, 'g-', linewidth=2, 
+                 label=f'{window_size}-Epoch Moving Avg')
+        plt.legend()
+    
+    # Plot test hit rates
+    plt.subplot(2, 1, 2)
+    plt.plot(epochs, test_hits, 'g-', marker='o', markersize=5, label='Test Hit Rates')
+        
+    # Add markers for checkpoint epochs if provided
+    if checkpoint_epochs:
+        checkpoint_accs = [test_hits[e-1] for e in checkpoint_epochs if e <= len(test_hits)]
+        checkpoint_x = [e for e in checkpoint_epochs if e <= len(test_hits)]
+        plt.plot(checkpoint_x, checkpoint_accs, 'ro', markersize=8, label='Checkpoints')
+        
+    plt.title('Test Hit Rates Over Time', fontsize=14)
+    plt.xlabel('Epochs', fontsize=12)
+    plt.ylabel('Hit Rates', fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.savefig(f"warm_training_visualization{test_num}.png")
+    plt.show()
+    
+    print(f"Training visualization saved to 'warm_training_visualization{test_num}.png'")
 
 def ppo_warm_train(file, test_num, warm_split, k):
     """Train model in warm-start setting with memory using PPO"""
@@ -150,18 +204,19 @@ def ppo_warm_train(file, test_num, warm_split, k):
             test_users = pickle.load(f)
 
     # Model hyperparameters
-    lr = 0.001
+    lr = 0.0001
     rnn_size = 100
     layer_size = 1
     embedding_dim = 100
-    nb_epoch = 100
+    nb_epoch = 50
     slice_length = 20
-    switch_epoch = 4
+    switch_epoch = 10
+    kl_coef = 0.005
     
     # PPO specific hyperparameters
-    ppo_clip_ratio = 0.2
+    ppo_clip_ratio = 0.1
     ppo_epochs = 4
-    entropy_coef = 0.01
+    entropy_coef = 0.001
     value_coef = 0.5
 
     print(f"file:{file}, test_num:{test_num}, k:{k}, warm_split:{warm_split}")
@@ -169,12 +224,12 @@ def ppo_warm_train(file, test_num, warm_split, k):
     print(f'train_users: {len(train_users)}')
     print(f'Total users: {len(test_users) + len(train_users)}')
     print(f'avg length: {np.mean([len(user_history[u]) for u in train_users])}')
-    print(f'item_num: {item_size}')
+    print(f'item_num: {item_size}\n')
 
     # Initialize model with PPO
     im = PPOExternalMemInteractiveModel(
         rnn_size, layer_size, item_size, embedding_dim, k, lr, device,
-        ppo_clip_ratio=ppo_clip_ratio, ppo_epochs=ppo_epochs,
+        kl_coef, ppo_clip_ratio=ppo_clip_ratio, ppo_epochs=ppo_epochs,
         entropy_coef=entropy_coef, value_coef=value_coef
     )
     im.to(device)
@@ -316,7 +371,7 @@ def ppo_warm_train(file, test_num, warm_split, k):
         test_ndcg_mean = float(np.mean(test_user_ndcg))
         diversity = inter_diversity(test_inter_diversity_list)
 
-        print(f'epoch:{epoch}, train hr:{train_hit_mean:.4f}, test: HR = {test_hit_mean:.4f}, NDCG@10 = {test_ndcg_mean:.4f}, diversity = {diversity:.4f}')
+        print(f'epoch:{epoch}, train hr:{train_hit_mean:.4f}, test: HR = {test_hit_mean:.4f}, NDCG@10 = {test_ndcg_mean:.4f}, diversity = {diversity:.4f}\n')
 
         # Save model checkpoint every 10 epochs
         if (epoch + 1) % 10 == 0:
@@ -331,9 +386,12 @@ if __name__ == "__main__":
     file = '100k'
     k = 10
     warm_splits = 0.5
+    train_hits = []
+    test_hits = []
 
     for i in range(5):
         test_num = str(i)
         gen_100k_train_test(file, test_num)
         warm_split = 0.5  # Using the warm_splits value
         ppo_warm_train(file, test_num, warm_split, k)
+        visualize_training(train_hits,test_hits)

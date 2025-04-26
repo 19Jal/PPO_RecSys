@@ -572,7 +572,7 @@ class PPOInteractiveModel(nn.Module):
 
 class PPOExternalMemInteractiveModel(nn.Module):
     def __init__(self, rnn_size, layer_size, decoder_vocab_size, embedding_dim, k, lr, device,
-                 ppo_clip_ratio=0.2, ppo_epochs=4, entropy_coef=0.01, value_coef=0.5):
+                 kl_coef, ppo_clip_ratio=0.2, ppo_epochs=4, entropy_coef=0.01, value_coef=0.5):
         super(PPOExternalMemInteractiveModel, self).__init__()
         
         self.device = device
@@ -582,6 +582,7 @@ class PPOExternalMemInteractiveModel(nn.Module):
         self.negative_imediate_reward = 0.2
         self.account_ratio = 0.9
         self.rnn_size = rnn_size
+        self.kl_coef = kl_coef
         
         # PPO specific parameters
         self.ppo_clip_ratio = ppo_clip_ratio
@@ -777,8 +778,13 @@ class PPOExternalMemInteractiveModel(nn.Module):
             # Entropy loss (for exploration)
             entropy = -(new_policy_probs * torch.log(new_policy_probs + 1e-10)).sum(dim=-1).mean()
             
+            # Compute full KL divergence
+            new_log_probs_full = torch.log(new_policy_probs + 1e-10)
+            old_log_probs_full = torch.log(old_policy_probs + 1e-10)
+            kl_div = (old_policy_probs * (old_log_probs_full - new_log_probs_full)).sum(dim=-1).mean()
+
             # Total loss
-            loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy
+            loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy + self.kl_coef * kl_div
             
             # Backward pass and optimize
             loss.backward()
